@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 
 
-class GumbelQuantizer(torch.nn.Module):
+class BaseQuantizer(torch.nn.Module):
     def __init__(
         self,
         input_dim,
@@ -25,6 +25,20 @@ class GumbelQuantizer(torch.nn.Module):
         self.curr_temp = max(
             self.max_temp * self.temp_decay ** num_updates, self.min_temp
         )
+    
+    def forward(self, x):
+        raise NotImplementedError
+
+
+class GumbelQuantizer(BaseQuantizer):
+    def __init__(
+        self,
+        input_dim,
+        num_codes,
+        temp,
+        code_dim,
+    ):
+        super().__init__(input_dim, num_codes, temp, code_dim)
 
     def forward(self, x):
 
@@ -74,7 +88,7 @@ class GumbelQuantizer(torch.nn.Module):
         return result
 
 
-class MarginalQuantizer(torch.nn.Module):
+class MarginalQuantizer(BaseQuantizer):
     def __init__(
         self,
         input_dim,
@@ -82,21 +96,7 @@ class MarginalQuantizer(torch.nn.Module):
         temp,
         code_dim,
     ):
-        super().__init__()
-
-        self.input_dim = input_dim
-        self.num_codes = num_codes
-        # init codebook
-        self.codebook = torch.nn.Parameter(torch.FloatTensor(num_codes, code_dim))
-        torch.nn.init.normal_(self.codebook, 0.0, (1 / num_codes**0.5))
-
-        self.max_temp, self.min_temp, self.temp_decay = temp
-        self.curr_temp = self.max_temp
-
-    def update_temp(self, num_updates):
-        self.curr_temp = max(
-            self.max_temp * self.temp_decay ** num_updates, self.min_temp
-        )
+        super().__init__(input_dim, num_codes, temp, code_dim)
 
     def forward(self, x):
 
