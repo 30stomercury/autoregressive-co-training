@@ -108,10 +108,9 @@ class BaseSolver:
         pbar = tqdm(dataloader)
         for i, batch in enumerate(pbar):
             batch = self.to_device(batch, self.device)
-            idx, name, x, lx, y, ly, mask = batch
             # Compute ave loss
             self.steps += 1
-            losses, preds, results = compute_batch(batch)
+            losses, preds, results, mask = compute_batch(batch)
             preds = torch.argmax(preds, -1)
             num_samples = (~mask).float().sum()
             stats.update(losses, num_samples)
@@ -137,7 +136,6 @@ class BaseSolver:
 
     def train_batch(self, batch):
         idx, name, x, lx, y, ly, mask = batch
-
         # Compute logits
         preds, q, results, mask = self.forward(x, y, lx, mask)
         # Clean grads
@@ -152,7 +150,7 @@ class BaseSolver:
         self.optimizer.step()
         losses['loss'] = losses['loss'].detach()
 
-        return losses, preds, results
+        return losses, preds, results, mask
 
     @torch.no_grad()
     def eval_batch(self, batch):
@@ -164,7 +162,7 @@ class BaseSolver:
         losses = self.compute_loss(preds, q, y, results, mask)
         losses['loss'] = losses['loss'].detach()
 
-        return losses, preds, results
+        return losses, preds, results, mask
 
     def compute_loss(self, preds, q, y, results, mask):
         losses = {}
