@@ -1,12 +1,10 @@
 import yaml
 import os
 import random
-
 import torch
 from utils import setup_loggers
 from dataloader import ls_data, collate_fn
 from parser import get_runner_args
-
 from cotraining import Cotraining
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -65,6 +63,7 @@ if __name__ == '__main__':
     cotraining_solver.load(ckpt_path, device=device)
     print('Models:\n', cotraining_solver.model)
     print('Training params:\n', config['training'])
+
     # Save epoch 0
     if not args.ckpt:
         cotraining_solver.save(0, path)
@@ -76,39 +75,15 @@ if __name__ == '__main__':
         total_params = sum(p.numel() for p in cotraining_solver.model.parameters() if p.requires_grad)
         config['model']['n_params'] = total_params
         logger_main.info('Model params: {}'.format(total_params))
-        if 'best_dev_err' not in config:
-            config['best_dev_err'] = 1000
-            config['best_epoch'] = 0
-        update_config(path, args.config.split('/')[-1], config)
-        for e in range(prev_epoch, config['training']['epoch']+1):
+        for e in range(prev_epoch, config['training']['epoch'] + 1):
             # Train 
             cotraining_solver.model.train()
-            loss, error, ent, ce_loss, rec_loss = cotraining_solver.run_epoch(phase='train')
+            summary  = cotraining_solver.run_epoch(phase='train')
+            msg = f'Epoch {e} - train '
+            for k, v in summary.items():
+                msg += f'{k}: {v:.3f}, '
+            logger_main.info(msg[:-2])
 
             # Save train
-            logger_main.info(
-                'Epoch {} - train err: {:.3f}, train loss: {:.3f}, ent: {:.3f}, ce_loss: {:.3f}, kl loss: {:.3f}, rec loss: {:.3f}'.format(
-                    e, error, loss, ent, ce_loss, ce_loss-ent, rec_loss
-                )
-            )
             if e % config['training']['save_every'] == 0:
                 cotraining_solver.save(e, path)
-            # Eval
-            loss, error = cotraining_solver.run_epoch(phase='eval')
-            logger_main.info('Epoch {} - ave dev err: {:.3f}, ave dev loss: {:.3f}'.format(e, error, loss))
-            if error < config['best_dev_err']:
-                config['best_dev_err'] = error
-                config['best_epoch'] = e
-                update_config(path, args.config.split('/')[-1], config)
-        logger_main.info('Best epoch {} - ave dev err: {:.3f}'.format(
-            config['best_epoch'], config['best_dev_err'])) 
-    # Test
-    ckpt_path = os.path.join(path, 'ckpt', 'cotraining_model_{}.ckpt'.format(config['best_epoch']))
-    cotraining_solver.load(ckpt_path, device=device)
-    for split in []:
-        eval_loader = Dataloader(config, split)
-        cotraining_solver.eval_loader = eval_loader
-        loss, error = cotraining_solver.run_epoch(phase='eval')
-        logger_main.info('Epoch {} - ave {} err: {:.3f}, ave {} loss: {:.3f}'.format(config['best_epoch'], split, error, split, loss))
-        config[f'best_{split}_err'] = error
-    update_config(path, args.config.split('/')[-1], config)
