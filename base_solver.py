@@ -49,7 +49,7 @@ class Stats:
     '''
     def __init__(self):
         self.summary = {}
-        self.summary['total_samples'] = 0
+        self.total_samples = 0
     
     def update(self, curr_stats, num_samples=0):
         '''
@@ -58,7 +58,7 @@ class Stats:
         curr_stats: dict
         num_samples: int
         '''    
-        self.summary['total_samples'] += num_samples.item()
+        self.total_samples += num_samples.item()
         for ele in curr_stats:
             if ele not in self.summary:
                 self.summary[ele] = 0
@@ -67,11 +67,11 @@ class Stats:
     def compute_stats(self):
         average = {}
         for ele in self.summary:
-            average[ele] = self.summary[ele] / self.summary['total_samples']
+            average[ele] = self.summary[ele] / self.total_samples
         return average
         
 
-class BaseSolver:
+class BaseModel:
 
     def __init__(
         self, 
@@ -83,9 +83,9 @@ class BaseSolver:
         self.config = config
         self.device = device
 
-        # steps
-        self.steps = config['steps']
         self.mode = config['model']['mode']
+        self.steps = config['steps']
+        self.show_error = config['training']['show_error']
 
         # Dataloader
         self.train_loader = train_loader
@@ -99,11 +99,7 @@ class BaseSolver:
         phase: (str) 
             train, eval
         """
-        total_ent_loss = 0
-        total_ce_loss = 0
-        total_rec_loss = 0
         total_correct = 0
-        total_samples = 0
         stats = Stats()
 
         self.model.train() if phase=='train' else self.model.eval()
@@ -112,40 +108,32 @@ class BaseSolver:
         pbar = tqdm(dataloader)
         for i, batch in enumerate(pbar):
             batch = self.to_device(batch, self.device)
-            idx, name, x, lx, y, ly, mask = self.to_device(batch, self.device)
+            idx, name, x, lx, y, ly, mask = batch
             # Compute ave loss
             self.steps += 1
             losses, preds, results = compute_batch(batch)
             preds = torch.argmax(preds, -1)
             num_samples = (~mask).float().sum()
-            total_ce_loss += losses['ce_loss'] * num_samples
-            total_ent_loss += losses['ent'] * num_samples
-            total_rec_loss += losses['rec_loss'] * num_samples
-            total_samples += num_samples
-            ave_ce_loss = total_ce_loss / total_samples
-            ave_ent_loss = total_ent_loss / total_samples
-            ave_rec_loss = total_rec_loss / total_samples
-            ave_loss = ave_ce_loss-ave_ent_loss + ave_rec_loss
             stats.update(losses, num_samples)
-            # Compute ave error
-            targets = torch.argmax(results['latent_probs'], -1)
-            total_correct += torch.sum((preds == targets).masked_fill_(mask.squeeze(-1), False))
-            ave_error = 100 * (1 - total_correct / total_samples)
+            summary = stats.compute_stats()
+            # Compute ave error between prednet and confnet outputs
+            if self.show_error:
+                targets = torch.argmax(results['latent_probs'], -1)
+                total_correct += torch.sum(
+                    (preds == targets).masked_fill_(mask.squeeze(-1), False)
+                )
+                ave_error = 100 * (1 - total_correct / stats.total_samples)
+                summary[f'error'] = ave_error.item()
             # Info
+            info = {
+                'code perp': results['code_perplexity'].item(),
+                'temp': results['temp'],
+                'lr': self.optimizer.param_groups[0]['lr'],
+            }
             pbar.set_postfix(
-                {
-                    f'{phase} error': '{:.3f}'.format(ave_error),
-                    f'{phase} loss': '{:.3f}'.format(ave_loss),
-                    f'ent': '{:.3f}'.format(ave_ent_loss),
-                    f'ce loss': '{:.3f}'.format(ave_ce_loss),
-                    f'kl loss': '{:.3f}'.format(ave_ce_loss-ave_ent_loss),
-                    f'rec loss': '{:.3f}'.format(ave_rec_loss),
-                    'code perp': results['code_perplexity'].item(),
-                    'temp': '{:.4f}'.format(results['temp']),
-                    'lr': self.model_optimizer.param_groups[0]['lr'],
-                }
+                {key: '{:.3f}'.format(ele) for key, ele in {**summary, **info}.items()}
             )
-        return ave_loss.item(), ave_error.item(), ave_ent_loss.item(), ave_ce_loss.item(), ave_rec_loss.item()
+        return summary
 
     def train_batch(self, batch):
         idx, name, x, lx, y, ly, mask = batch
@@ -153,7 +141,7 @@ class BaseSolver:
         # Compute logits
         preds, q, results, mask = self.forward(x, y, lx, mask)
         # Clean grads
-        self.model_optimizer.zero_grad()
+        self.optimizer.zero_grad()
         # Compute loss
         losses = self.compute_loss(preds, q, y, results, mask)
         losses['loss'].backward()
@@ -161,7 +149,7 @@ class BaseSolver:
         # Clip grads
         if self.config['training']['g_clip'] > 0:
             clip_grad(self.model.parameters(), self.config['training']['g_clip'])
-        self.model_optimizer.step()
+        self.optimizer.step()
         losses['loss'] = losses['loss'].detach()
 
         return losses, preds, results
@@ -228,12 +216,12 @@ class BaseSolver:
 
     def init_optimizers(self):   
         if self.config['training']['opt'] == 'Adadelta':
-            self.model_optimizer = torch.optim.Adadelta(
+            self.optimizer = torch.optim.Adadelta(
                 self.model.parameters(), 
                 lr=self.config['training']['lr']
             )
         elif self.config['training']['opt'] == 'Adam':
-            self.model_optimizer = torch.optim.Adam(
+            self.optimizer = torch.optim.Adam(
                 self.model.parameters(), 
                 lr=self.config['training']['lr']
             )
@@ -251,7 +239,7 @@ class BaseSolver:
             )
         if os.path.exists(optim_path):
             print('Loading model and optimizer from : {}'.format(optim_path))
-            self.model_optimizer.load_state_dict(
+            self.optimizer.load_state_dict(
                 torch.load(optim_path, map_location=device)
             )
 
@@ -259,7 +247,7 @@ class BaseSolver:
         save_path =  os.path.join(path, 'ckpt', 'cotraining_model_{}.ckpt'.format(e))
         torch.save(self.model.state_dict(), save_path)
         optim_path = save_path.replace('model', 'optim')
-        torch.save(self.model_optimizer.state_dict(), optim_path)
+        torch.save(self.optimizer.state_dict(), optim_path)
 
     def to_device(self, batch, device):
         outputs = []
