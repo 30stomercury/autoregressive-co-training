@@ -25,6 +25,20 @@ class BaseQuantizer(torch.nn.Module):
         self.curr_temp = max(
             self.max_temp * self.temp_decay ** num_updates, self.min_temp
         )
+
+    def compute_perp(self, x, B, T):
+        _, k = x.max(-1)
+        hard_x = (
+            x.new_zeros(*x.shape)
+            .scatter_(-1, k.view(-1, 1), 1.0)
+            .view(B * T, -1)
+        )
+        hard_probs = torch.mean(hard_x.float(), dim=0)
+        perp = torch.exp(
+            -torch.sum(hard_probs * torch.log(hard_probs + 1e-12), dim=-1)
+        ).sum()
+        return hard_x, perp
+
     
     def forward(self, x):
         raise NotImplementedError
@@ -58,17 +72,8 @@ class GumbelQuantizer(BaseQuantizer):
         probs = torch.softmax(x.float(), dim=-1)
 
         # perplexity
-        _, k = x.max(-1)
-        hard_x = (
-            x.new_zeros(*x.shape)
-            .scatter_(-1, k.view(-1, 1), 1.0)
-            .view(B * T, -1)
-        )
-        hard_probs = torch.mean(hard_x.float(), dim=0)
-        result["code_perplexity"] = torch.exp(
-            -torch.sum(hard_probs * torch.log(hard_probs + 1e-12), dim=-1)
-        ).sum()
-
+        hard_x, perp = self.compute_perp(x, B, T)
+        result["code_perplexity"] = perp
 
         if self.training:
             # ST Gumbel estimator
@@ -117,16 +122,8 @@ class MarginalQuantizer(BaseQuantizer):
         probs = torch.softmax(x.float(), dim=-1)
 
         # perplexity
-        _, k = x.max(-1)
-        hard_x = (
-            x.new_zeros(*x.shape)
-            .scatter_(-1, k.view(-1, 1), 1.0)
-            .view(B * T, -1)
-        )
-        hard_probs = torch.mean(hard_x.float(), dim=0)
-        result["code_perplexity"] = torch.exp(
-            -torch.sum(hard_probs * torch.log(hard_probs + 1e-12), dim=-1)
-        ).sum()
+        hard_x, perp = self.compute_perp(x, B, T)
+        result["code_perplexity"] = perp
 
         # Selected code (single sample), q is not used during marginalization training.
         q = torch.matmul(hard_x, codebook.squeeze(0))
