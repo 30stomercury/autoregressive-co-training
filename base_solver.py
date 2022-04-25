@@ -71,7 +71,7 @@ class Stats:
         return average
         
 
-class BaseModel:
+class BaseSolver:
 
     def __init__(
         self, 
@@ -124,11 +124,11 @@ class BaseModel:
                 )
                 ave_error = 100 * (1 - total_correct / stats.total_samples)
                 summary[f'error'] = ave_error.item()
-            # Info
+            # Augment summary to show training infos
             info = {
+                'lr': self.optimizer.param_groups[0]['lr'],
                 'code perp': results['code_perplexity'].item(),
                 'temp': results['temp'],
-                'lr': self.optimizer.param_groups[0]['lr'],
             }
             pbar.set_postfix(
                 {key: '{:.3f}'.format(ele) for key, ele in {**summary, **info}.items()}
@@ -210,7 +210,6 @@ class BaseModel:
         losses['loss'] = loss
         losses['ent'] = ent_loss
         losses['ce_loss'] = ce_loss
-        losses['kl_loss'] = ce_loss - ent_loss
         losses['rec_loss'] = rec_loss 
         return losses
 
