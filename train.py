@@ -13,7 +13,6 @@ os.environ['PYTHONHASHSEED'] = str(seed)
 torch.manual_seed(seed)
 torch.cuda.manual_seed(seed)
 torch.cuda.manual_seed_all(seed)
-torch.backends.cudnn.deterministic = True
 random.seed(seed)
 
 def setup_logger(logger_name, log_file, level=logging.INFO):
@@ -92,7 +91,7 @@ if __name__ == '__main__':
         for e in range(prev_epoch, config['training']['epoch'] + 1):
             # Train 
             model_solver.model.train()
-            summary  = model_solver.run_epoch(phase='train')
+            summary = model_solver.run_epoch(phase='train')
             msg = f'Epoch {e} - train '
             for k, v in summary.items():
                 msg += f'{k}: {v:.3f}, '
@@ -101,5 +100,5 @@ if __name__ == '__main__':
             # Save train
             if e % config['training']['save_every'] == 0:
                 model_solver.save(e, path)
-            config['steps'] = model_solver.steps
-            update_config(path, args.config.split('/')[-1], config)
+                config['steps'] = model_solver.steps
+                update_config(path, args.config.split('/')[-1], config)

@@ -8,9 +8,7 @@ def clip_grad(parameters, g_clip=10):
     grad_norm = torch.nn.utils.clip_grad_norm_(
         parameters, g_clip
     )
-    if torch.isnan(grad_norm):
-        self.save('nan', './')
-        raise ValueError('Grad norm is NaN at this step')
+    return grad_norm
 
 
 def CrossEntropy(pred, target, reduction="none"):
@@ -58,11 +56,12 @@ class Stats:
         curr_stats: dict
         num_samples: int
         '''    
-        self.total_samples += num_samples.item()
+        num_samples = num_samples.item()
+        self.total_samples += num_samples
         for ele in curr_stats:
             if ele not in self.summary:
                 self.summary[ele] = 0
-            self.summary[ele] += (curr_stats[ele] * num_samples).item()
+            self.summary[ele] += curr_stats[ele].item() * num_samples
 
     def compute_stats(self):
         average = {}
@@ -122,7 +121,7 @@ class BaseSolver:
                     (preds == targets).masked_fill_(mask.squeeze(-1), False)
                 )
                 ave_error = 100 * (1 - total_correct / stats.total_samples)
-                summary[f'error'] = ave_error.item()
+                summary['error'] = ave_error.item()
             # Augment summary to show training infos
             info = {
                 'lr': self.optimizer.param_groups[0]['lr'],
@@ -136,17 +135,19 @@ class BaseSolver:
 
     def train_batch(self, batch):
         idx, name, x, lx, y, ly, mask = batch
-        # Compute logits
-        preds, q, results, mask = self.forward(x, y, lx, mask)
         # Clean grads
         self.optimizer.zero_grad()
+        # Compute logits
+        preds, q, results, mask = self.forward(x, y, lx, mask)
         # Compute loss
         losses = self.compute_loss(preds, q, y, results, mask)
         losses['loss'].backward()
-
         # Clip grads
         if self.config['training']['g_clip'] > 0:
-            clip_grad(self.model.parameters(), self.config['training']['g_clip'])
+            grad_norm = clip_grad(self.model.parameters(), self.config['training']['g_clip'])
+            if torch.isnan(grad_norm):
+                self.save('nan', self.config['path'])
+                raise ValueError('Grad norm is NaN at this step')
         self.optimizer.step()
         losses['loss'] = losses['loss'].detach()
 
@@ -208,7 +209,7 @@ class BaseSolver:
         losses['loss'] = loss
         losses['ent'] = ent_loss
         losses['ce_loss'] = ce_loss
-        losses['rec_loss'] = rec_loss 
+        losses['rec_loss'] = rec_loss
         return losses
 
     def init_optimizers(self):   
@@ -235,7 +236,7 @@ class BaseSolver:
                 torch.load(model_path, map_location=device), strict=True
             )
         if os.path.exists(optim_path):
-            print('Loading model and optimizer from : {}'.format(optim_path))
+            print('Loading optimizer from : {}'.format(optim_path))
             self.optimizer.load_state_dict(
                 torch.load(optim_path, map_location=device)
             )
