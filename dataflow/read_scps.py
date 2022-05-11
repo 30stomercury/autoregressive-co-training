@@ -1,5 +1,5 @@
 import numpy as np
-from dataflow.kaldiark import parse_feat_matrix, parse_matrix_length
+from dataflow.kaldiark import parse_feat_matrix
 
 class get_fbank_scp:
     """
@@ -14,10 +14,9 @@ class get_fbank_scp:
 
     def __init__(self, file):
         # For memeory issue, we do not load all mat here
-        scps, names, lengths = self.parser(file)
+        scps, names = self.parser(file)
         self.scps = scps
         self.names = names
-        self.lengths = lengths
 
     def __getitem__(self, index):
         scp_id = self.scps[index]
@@ -34,7 +33,6 @@ class get_fbank_scp:
     def parser(self, file):
         scps = []
         names = []
-        lengths = []
         mats = []
         # For memeory issue, we do not load all mat here
         with open(file) as f:
@@ -44,15 +42,13 @@ class get_fbank_scp:
                 # read features
                 f_ = open(ark, 'rb')
                 f_.seek(int(offset))
-                length = parse_matrix_length(f_)
                 # collect elements
-                if length > 1:
-                    scps.append(scp_id)
-                    names.append(name)
-                    lengths.append(length)
+                scps.append(scp_id)
+                names.append(name)
         f.close()
 
-        return scps, names, lengths 
+        return scps, names
+
 
 class get_bstring:
     """Used in phn classification.    
@@ -83,6 +79,7 @@ class get_bstring:
 
     def __getitem__(self, name):
         return self.bpali[name]
+
 
 class get_bstring_scp:
     """Used in phn classification.
