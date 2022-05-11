@@ -19,3 +19,8 @@ Data are processed to [Kaldi I/O form](https://kaldi-asr.org/doc/io.html),
 which uses scp files to map utterance ids to positions in ark files. Functions used to process `.scp` and `.ark` files 
 can be found under `dataflow/`. We provide a data sample in `sample/` for user to run the pipeline. User can simply pluge in 
 your custom dataloader [here](https://github.com/30stomercury/autoregressive-co-training/blob/d88d7e6c3f02085be8f0698ba2fde667b4d5349e/train.py#L36).
+
+# Train
+```
+python3 train.py --config config/cotraining.yaml
+```
