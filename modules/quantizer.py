@@ -81,13 +81,13 @@ class GumbelQuantizer(BaseQuantizer):
         else:
             x = hard_x
 
-        x = x.view(bsz * tsz, -1)
+        x = x.view(B * T, -1)
 
         # selected code (single sample)
         q = torch.matmul(x, codebook.squeeze(0))
-        q = q.view(bsz, tsz, -1)
+        q = q.view(B, T, -1)
         result["q"] = q
-        result["latent_probs"] = probs.view(bsz, tsz, -1)
+        result["latent_probs"] = probs.view(B, T, -1)
         result["temp"] = self.curr_temp
 
         return result

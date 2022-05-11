@@ -1,0 +1,48 @@
+prefix : exp
+
+data: 
+  data_dir : &data_dir 'sample/'
+  set      : !join [*data_dir, 'train-clean-360-single.scp']
+  mean_var : !join [*data_dir, 'train-clean-360.mean-var']
+  norm    : True
+  dim     : &input_dim 40
+  context : 1
+  num     : all
+  t_shift: 5
+
+model:
+  mode: marginal # marginal, gumbel
+  num_codes: &num_codes 256 # num latent variables
+  lstm:
+    input_size: *input_dim
+    hidden_size: 512
+    num_layers: 3
+    batch_first: True
+    residual: False
+  lin:
+    in_features: 512
+    out_features: *num_codes
+  quantizer:
+    input_dim: *input_dim              
+    num_codes: *num_codes 
+    temp: [2.0, 0.5, 0.99995]    
+    code_dim: *input_dim                 
+  dropout: 0.0  
+
+training:
+  batch: &batch 16
+  epoch: 30
+  save_every: 1
+  lr: 0.001
+  g_clip: 5
+  opt: Adam
+  show_error: True
+
+tr_dataloader: &data
+  batch_size      : *batch
+  num_workers     : 8
+  pin_memory      : True
+  prefetch_factor : 2
+  shuffle         : True
+
+dev_dataloader: *data

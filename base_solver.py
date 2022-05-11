@@ -192,7 +192,6 @@ class BaseSolver:
             # compute loss based on single sample q
             rec_loss_batch = 0.5 * (q - y)**2 * mask
             rec_loss = (rec_loss_batch * mask).sum() / mask.sum() 
-            loss = ce_loss - ent_loss + rec_loss
 
         elif self.mode == 'marginal':
             # (B, T, N, D)
@@ -203,7 +202,8 @@ class BaseSolver:
                 rec_losses.unsqueeze(-1)
             ).view(B, T) * mask.squeeze(-1)
             rec_loss = rec_loss_batch.sum() / mask.sum()
-            loss = ce_loss - ent_loss + rec_loss 
+
+        loss = ce_loss - ent_loss + rec_loss 
 
         # Total loss
         losses['loss'] = loss
