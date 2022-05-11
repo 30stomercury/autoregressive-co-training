@@ -27,5 +27,5 @@ python3 train.py --config config/cotraining.yaml
 # Pre-trained Models
 Hours  | Num codes | Model | dev93 (PER) | eval92 (PER) | Link
 :-------------: | :-------------: | :-------------: | :-------------: | :-------------: | :-------------: | 
-360  | 256 | Marginalization | 19.5 | 19.0 | [link](https://drive.google.com/drive/u/1/folders/18lNV9Fz1ypnTo7Ivx0nVTFeV1EGk-avd)
-960  | 256 | Marginalization | 18.2 | 17.8 | [link](https://drive.google.com/drive/u/1/folders/12KuEn9UBTUBl2qetZLypXsHPPEQGYmby) 
+360  | 256 | 3-layer lstm with Marginalization | 19.5 | 19.0 | [link](https://drive.google.com/drive/u/1/folders/18lNV9Fz1ypnTo7Ivx0nVTFeV1EGk-avd)
+960  | 256 | 3-layer lstm with Marginalization | 18.2 | 17.8 | [link](https://drive.google.com/drive/u/1/folders/12KuEn9UBTUBl2qetZLypXsHPPEQGYmby) 
