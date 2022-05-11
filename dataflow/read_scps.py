@@ -1,5 +1,5 @@
 import numpy as np
-from kaldiark import parse_feat_matrix, parse_matrix_length
+from dataflow.kaldiark import parse_feat_matrix, parse_matrix_length
 
 class get_fbank_scp:
     """
