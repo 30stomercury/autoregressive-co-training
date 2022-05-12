@@ -167,6 +167,7 @@ class BaseSolver:
 
     def compute_loss(self, preds, q, y, results, mask):
         losses = {}
+        # (B, T, N)
         latent_probs = results['latent_probs']
         num_codes = latent_probs.size(-1)
         # mask
@@ -194,7 +195,7 @@ class BaseSolver:
             rec_loss = (rec_loss_batch * mask).sum() / mask.sum() 
 
         elif self.mode == 'marginal':
-            # (B, T, N)
+            # (B * T, 1, N) x (B * T, N, 1)
             rec_losses = 0.5 * results['downstream_losses'].view(B * T, -1)
             latent_probs = latent_probs.view(-1, num_codes)
             # marginalization
