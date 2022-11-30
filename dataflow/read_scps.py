@@ -65,20 +65,20 @@ class get_bstring:
 
         self.tok_2_int, self.int_2_tok = token_list(tok_file)
 
-        self.bpali = {}
+        self.seqs = {}
         for i, line in enumerate(self.lines):
             if i % 3 == 0:
                 curr = line.split()[0]
 
             if i % 3 == 1:
                 orig_seq = [self.tok_2_int[x] for x in line.split()]
-                self.bpali[curr] = orig_seq
+                self.seqs[curr] = orig_seq
 
             if i % 3 == 2 and line.split()[0] != '.':
                 print('Align fault')
 
     def __getitem__(self, name):
-        return self.bpali[name]
+        return self.seqs[name]
 
 
 class get_bstring_scp:
