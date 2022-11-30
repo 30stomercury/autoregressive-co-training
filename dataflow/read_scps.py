@@ -91,7 +91,6 @@ class get_bstring_scp:
 
     def __init__(self, file, tok_file):
         self.f_prefix = file.rsplit('/', 2)[0] + '/'
-        self.file_suffix = '.scp'
         self.tok_2_int, self.int_2_tok = token_list(tok_file)
         scps, seqs = self.parser(file)
         self.seqs = seqs
@@ -104,7 +103,7 @@ class get_bstring_scp:
     def parser(self, file):
         scps = []
         seqs = {}
-        with open(file + self.file_suffix) as f:
+        with open(file) as f:
             for scp_id in f:
                 name, ark_offset = scp_id.split()
                 ark, offset = ark_offset.split(':')
@@ -119,3 +118,17 @@ class get_bstring_scp:
         f.close()
 
         return scps, seqs
+
+
+def token_list(file):
+    f = open(file)
+    lines = f.readlines()
+    f.close()
+    
+    tok_2_int = {}
+    int_2_tok = {}
+    for i, l in enumerate(lines):
+        tok_2_int[l.split()[0]] = i
+        int_2_tok[i] = l.split()[0]
+
+    return tok_2_int, int_2_tok
