@@ -125,10 +125,13 @@ def token_list(file):
     lines = f.readlines()
     f.close()
     
-    tok_2_int = {}
-    int_2_tok = {}
+    tok2int = {}
+    int2tok = {}
     for i, l in enumerate(lines):
-        tok_2_int[l.split()[0]] = i
-        int_2_tok[i] = l.split()[0]
-
-    return tok_2_int, int_2_tok
+        int2tok[i] = l.split()[0].lower()
+    int2tok[i+1] = "sil"
+    int2tok[i+2] = "<spn>"
+    int2tok[i+3] = "<noise>"
+    for i in range(len(int2tok)):
+        tok2int[int2tok[i]] = i
+    return tok2int, int2tok
